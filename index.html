@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sales Monitor — Retail Performance Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #070d19; color: #f1f5f9; }
+    .card-panel { background: linear-gradient(180deg, #0f192d 0%, #0b1322 100%); border: 1px solid #1e2d4a; }
+    .nav-active { border-bottom: 3px solid #38bdf8; color: #38bdf8; font-weight: 700; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #070d19; }
+    ::-webkit-scrollbar-thumb { background: #1e2d4a; border-radius: 4px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOP NAVIGATION BAR -->
+  <header class="bg-[#091120] border-b border-slate-800 sticky top-0 z-40">
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-6 overflow-x-auto">
+        <div class="flex items-center gap-2.5 shrink-0">
+          <div class="w-9 h-9 rounded-lg bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-400 font-extrabold text-lg">SM</div>
+          <div>
+            <div class="text-sm font-extrabold tracking-wide text-white leading-none">SALES</div>
+            <div class="text-xs font-bold tracking-widest text-sky-400">MONITOR</div>
+          </div>
+        </div>
+
+        <nav class="flex items-center gap-1 sm:gap-5 text-xs sm:text-sm font-medium text-slate-400 shrink-0">
+          <button onclick="switchMenu('dashboard')" id="nav-dashboard" class="py-5 px-2 hover:text-white transition nav-active">DASHBOARD</button>
+          <button onclick="switchMenu('ero')" id="nav-ero" class="py-5 px-2 hover:text-white transition">SALES ALL ERO</button>
+          <button onclick="switchMenu('brand')" id="nav-brand" class="py-5 px-2 hover:text-white transition">SALES BY BRAND</button>
+          <button onclick="switchMenu('fokus')" id="nav-fokus" class="py-5 px-2 hover:text-white transition">PRODUK FOKUS</button>
+        </nav>
+      </div>
+
+      <div class="flex items-center gap-3 shrink-0">
+        <span id="dataSourceBadge" class="hidden md:inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30">
+          ● Demo Mode (H-1)
+        </span>
+        <select id="roleSelector" onchange="handleRoleChange()" class="bg-[#111d35] border border-slate-700 text-xs sm:text-sm rounded-lg px-3 py-1.5 text-slate-200 focus:outline-none focus:border-sky-400">
+          <option value="LEADER">Role: Leader (All Area)</option>
+          <option value="SLS-001">Role: ERO - Susi (SMB-01)</option>
+          <option value="SLS-002">Role: ERO - Ardi (SMB-01)</option>
+          <option value="SLS-003">Role: ERO - Burhan (PKW-02)</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- GLOBAL FILTER BAR -->
+  <section class="max-w-[1440px] w-full mx-auto px-4 sm:px-6 pt-5">
+    <div class="card-panel rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
+      <div>
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Region</label>
+        <select id="filterRegion" onchange="onRegionChange()" class="w-full bg-[#070d19] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-sky-400 focus:outline-none"></select>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Area / TSH</label>
+        <select id="filterArea" onchange="onAreaChange()" class="w-full bg-[#070d19] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-sky-400 focus:outline-none"></select>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Store Code / Name</label>
+        <select id="filterStore" onchange="renderActiveMenu()" class="w-full bg-[#070d19] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-sky-400 focus:outline-none"></select>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Mode Tampilan</label>
+        <div class="grid grid-cols-2 bg-[#070d19] p-1 rounded-lg border border-slate-700">
+          <button id="btnModeVal" onclick="setDisplayMode('VAL')" class="py-1.5 text-xs font-bold rounded-md bg-sky-500 text-slate-950 transition">Value (Rp)</button>
+          <button id="btnModeQty" onclick="setDisplayMode('QTY')" class="py-1.5 text-xs font-bold rounded-md text-slate-400 hover:text-white transition">Qty (Unit)</button>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Periode Cepat</label>
+        <select id="filterPeriod" onchange="onPeriodPresetChange()" class="w-full bg-[#070d19] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-sky-400 focus:outline-none">
+          <option value="THIS_MONTH_H1">Bulan Ini (Cut-off H-1)</option>
+          <option value="LAST_MONTH">Bulan Lalu</option>
+          <option value="THIS_WEEK">Minggu Ini (H-1)</option>
+          <option value="YESTERDAY">Kemarin (H-1)</option>
+          <option value="CUSTOM">Custom Range</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Rentang Tanggal</label>
+        <div class="flex items-center gap-1.5">
+          <input type="date" id="dateStart" onchange="onCustomDateChange()" class="w-full bg-[#070d19] border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white focus:border-sky-400 focus:outline-none">
+          <span class="text-slate-500 text-xs">-</span>
+          <input type="date" id="dateEnd" onchange="onCustomDateChange()" class="w-full bg-[#070d19] border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white focus:border-sky-400 focus:outline-none">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main id="appContainer" class="max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6 flex-1 space-y-6"></main>
+
+  <script>
+    const APPS_SCRIPT_URL = ""; 
+
+    const DEMO_DB = {
+      masterStore: [
+        { Store_Code: "SMB-01", Store_Name: "SAMSUNG SMB", Area_TSH: "Adriansyah", Region: "Region 1" },
+        { Store_Code: "PKW-02", Store_Name: "SAMSUNG Pakuwon", Area_TSH: "Budi", Region: "Region 1" },
+        { Store_Code: "KLT-03", Store_Name: "SAMSUNG Kelapa Gading", Area_TSH: "Chandra", Region: "Region 2" }
+      ],
+      masterUser: [
+        { Sales_Code: "SLS-001", ERO_Name: "Susi", Store_Code: "SMB-01", Role: "ERO" },
+        { Sales_Code: "SLS-002", ERO_Name: "Ardi", Store_Code: "SMB-01", Role: "ERO" },
+        { Sales_Code: "SLS-003", ERO_Name: "Burhan", Store_Code: "PKW-02", Role: "ERO" },
+        { Sales_Code: "SLS-004", ERO_Name: "Asep", Store_Code: "PKW-02", Role: "ERO" },
+        { Sales_Code: "SLS-005", ERO_Name: "Bella", Store_Code: "KLT-03", Role: "ERO" }
+      ],
+      masterFokus: [
+        { Brand: "Samsung", Nama_Model: "Galaxy S26 Ultra", Kode_Produk: "S26U", Status_Fokus: "AKTIF" },
+        { Brand: "Samsung", Nama_Model: "Galaxy S26+", Kode_Produk: "S26P", Status_Fokus: "AKTIF" },
+        { Brand: "Samsung", Nama_Model: "Galaxy S26", Kode_Produk: "S26", Status_Fokus: "AKTIF" },
+        { Brand: "Samsung", Nama_Model: "Galaxy A57", Kode_Produk: "A57", Status_Fokus: "TIDAK AKTIF" }
+      ],
+      targetStore: [
+        { Bulan: "2026-11", Store_Code: "SMB-01", SalesAll_Val: 300000000, Device_Val: 240000000, Acc_Val: 30000000, Boltech_Val: 15000000, Operator_Val: 15000000, Indosat_Val: 6000000, Telkomsel_Val: 6000000, XL_Val: 3000000, TradeIn_Qty: 12 },
+        { Bulan: "2026-11", Store_Code: "PKW-02", SalesAll_Val: 260000000, Device_Val: 200000000, Acc_Val: 30000000, Boltech_Val: 15000000, Operator_Val: 15000000, Indosat_Val: 6000000, Telkomsel_Val: 6000000, XL_Val: 3000000, TradeIn_Qty: 10 },
+        { Bulan: "2026-11", Store_Code: "KLT-03", SalesAll_Val: 220000000, Device_Val: 170000000, Acc_Val: 25000000, Boltech_Val: 12000000, Operator_Val: 13000000, Indosat_Val: 5000000, Telkomsel_Val: 5000000, XL_Val: 3000000, TradeIn_Qty: 8 }
+      ],
+      targetEro: [
+        { Bulan: "2026-11", Sales_Code: "SLS-001", SalesAll_Val: 150000000, Device_Val: 120000000, Acc_Val: 15000000, Boltech_Val: 7500000, Operator_Val: 7500000, Indosat_Val: 3000000, Telkomsel_Val: 3000000, XL_Val: 1500000, TradeIn_Qty: 6, Fokus_Qty: 4 },
+        { Bulan: "2026-11", Sales_Code: "SLS-002", SalesAll_Val: 150000000, Device_Val: 120000000, Acc_Val: 15000000, Boltech_Val: 7500000, Operator_Val: 7500000, Indosat_Val: 3000000, Telkomsel_Val: 3000000, XL_Val: 1500000, TradeIn_Qty: 6, Fokus_Qty: 4 },
+        { Bulan: "2026-11", Sales_Code: "SLS-003", SalesAll_Val: 130000000, Device_Val: 100000000, Acc_Val: 15000000, Boltech_Val: 7500000, Operator_Val: 7500000, Indosat_Val: 3000000, Telkomsel_Val: 3000000, XL_Val: 1500000, TradeIn_Qty: 5, Fokus_Qty: 3 },
+        { Bulan: "2026-11", Sales_Code: "SLS-004", SalesAll_Val: 130000000, Device_Val: 100000000, Acc_Val: 15000000, Boltech_Val: 7500000, Operator_Val: 7500000, Indosat_Val: 3000000, Telkomsel_Val: 3000000, XL_Val: 1500000, TradeIn_Qty: 5, Fokus_Qty: 3 },
+        { Bulan: "2026-11", Sales_Code: "SLS-005", SalesAll_Val: 220000000, Device_Val: 170000000, Acc_Val: 25000000, Boltech_Val: 12000000, Operator_Val: 13000000, Indosat_Val: 5000000, Telkomsel_Val: 5000000, XL_Val: 3000000, TradeIn_Qty: 8, Fokus_Qty: 5 }
+      ],
+      transaksi: [
+        { Tanggal: "2026-11-03", Sales_Code: "SLS-001", Store_Code: "SMB-01", Kategori: "Device", Brand: "Samsung", Nama_Model: "Galaxy S26 Ultra", Qty: 2, Value: 44000000 },
+        { Tanggal: "2026-11-06", Sales_Code: "SLS-001", Store_Code: "SMB-01", Kategori: "Device", Brand: "Samsung", Nama_Model: "Galaxy A57", Qty: 3, Value: 18000000 },
+        { Tanggal: "2026-11-08", Sales_Code: "SLS-001", Store_Code: "SMB-01", Kategori: "Acc", Brand: "Samsung", Nama_Model: "Buds & Case", Qty: 8, Value: 7500000 },
+        { Tanggal: "2026-11-09", Sales_Code: "SLS-001", Store_Code: "SMB-01", Kategori: "Boltech", Brand: "Samsung", Nama_Model: "Care+ 1Yr", Qty: 5, Value: 4000000 },
+        { Tanggal: "2026-11-10", Sales_Code: "SLS-001", Store_Code: "SMB-01", Kategori: "Indosat", Brand: "Samsung", Nama_Model: "IM3 Postpaid", Qty: 6, Value: 2400000 },
+        { Tanggal: "2026-11-11", Sales_Code: "SLS-001", Store_Code: "SMB-01", Kategori: "Telkomsel", Brand: "Samsung", Nama_Model: "Halo+", Qty: 5, Value: 2000000 },
+
+        { Tanggal: "2026-11-04", Sales_Code: "SLS-002", Store_Code: "SMB-01", Kategori: "Device", Brand: "Samsung", Nama_Model: "Galaxy S26+", Qty: 2, Value: 36000000 },
+        { Tanggal: "2026-11-07", Sales_Code: "SLS-002", Store_Code: "SMB-01", Kategori: "Device", Brand: "Oppo", Nama_Model: "Reno 12", Qty: 3, Value: 19500000 },
+        { Tanggal: "2026-11-09", Sales_Code: "SLS-002", Store_Code: "SMB-01", Kategori: "Acc", Brand: "Oppo", Nama_Model: "Enco & Charger", Qty: 7, Value: 5200000 },
+        { Tanggal: "2026-11-10", Sales_Code: "SLS-002", Store_Code: "SMB-01", Kategori: "Boltech", Brand: "Samsung", Nama_Model: "Screen Guard", Qty: 4, Value: 3100000 },
+        { Tanggal: "2026-11-11", Sales_Code: "SLS-002", Store_Code: "SMB-01", Kategori: "XL", Brand: "Oppo", Nama_Model: "XL Prioritas", Qty: 6, Value: 1800000 },
+
+        { Tanggal: "2026-11-02", Sales_Code: "SLS-003", Store_Code: "PKW-02", Kategori: "Device", Brand: "Samsung", Nama_Model: "Galaxy S26", Qty: 2, Value: 30000000 },
+        { Tanggal: "2026-11-05", Sales_Code: "SLS-003", Store_Code: "PKW-02", Kategori: "Device", Brand: "Vivo", Nama_Model: "Vivo V40", Qty: 4, Value: 24000000 },
+        { Tanggal: "2026-11-08", Sales_Code: "SLS-003", Store_Code: "PKW-02", Kategori: "Acc", Brand: "Vivo", Nama_Model: "TWS Vivo", Qty: 9, Value: 6000000 },
+        { Tanggal: "2026-11-10", Sales_Code: "SLS-003", Store_Code: "PKW-02", Kategori: "Boltech", Brand: "Samsung", Nama_Model: "Care+ 2Yr", Qty: 4, Value: 3500000 },
+        { Tanggal: "2026-11-11", Sales_Code: "SLS-003", Store_Code: "PKW-02", Kategori: "Telkomsel", Brand: "Vivo", Nama_Model: "Halo+", Qty: 8, Value: 3200000 },
+
+        { Tanggal: "2026-11-04", Sales_Code: "SLS-004", Store_Code: "PKW-02", Kategori: "Device", Brand: "iPhone", Nama_Model: "iPhone 16", Qty: 2, Value: 34000000 },
+        { Tanggal: "2026-11-09", Sales_Code: "SLS-004", Store_Code: "PKW-02", Kategori: "Acc", Brand: "iPhone", Nama_Model: "MagSafe", Qty: 5, Value: 4800000 },
+        { Tanggal: "2026-11-11", Sales_Code: "SLS-004", Store_Code: "PKW-02", Kategori: "Indosat", Brand: "iPhone", Nama_Model: "IM3", Qty: 6, Value: 2100000 },
+
+        { Tanggal: "2026-11-03", Sales_Code: "SLS-005", Store_Code: "KLT-03", Kategori: "Device", Brand: "Samsung", Nama_Model: "Galaxy S26 Ultra", Qty: 3, Value: 66000000 },
+        { Tanggal: "2026-11-06", Sales_Code: "SLS-005", Store_Code: "KLT-03", Kategori: "Device", Brand: "Xiaomi", Nama_Model: "Xiaomi 14T", Qty: 4, Value: 26000000 },
+        { Tanggal: "2026-11-08", Sales_Code: "SLS-005", Store_Code: "KLT-03", Kategori: "Acc", Brand: "Samsung", Nama_Model: "Watch & Buds", Qty: 10, Value: 9500000 },
+        { Tanggal: "2026-11-10", Sales_Code: "SLS-005", Store_Code: "KLT-03", Kategori: "Boltech", Brand: "Samsung", Nama_Model: "Care+", Qty: 6, Value: 5000000 },
+        { Tanggal: "2026-11-11", Sales_Code: "SLS-005", Store_Code: "KLT-03", Kategori: "Telkomsel", Brand: "Samsung", Nama_Model: "Halo+", Qty: 9, Value: 3600000 }
+      ],
+      tradeIn: [
+        { Tanggal: "2026-11-05", Sales_Code: "SLS-001", Store_Code: "SMB-01", Brand: "Samsung", Nama_Model: "Galaxy S26 Ultra", Qty: 3 },
+        { Tanggal: "2026-11-09", Sales_Code: "SLS-002", Store_Code: "SMB-01", Brand: "Samsung", Nama_Model: "Galaxy S26+", Qty: 2 },
+        { Tanggal: "2026-11-07", Sales_Code: "SLS-003", Store_Code: "PKW-02", Brand: "Samsung", Nama_Model: "Galaxy S26", Qty: 2 },
+        { Tanggal: "2026-11-10", Sales_Code: "SLS-004", Store_Code: "PKW-02", Brand: "iPhone", Nama_Model: "iPhone 16", Qty: 1 },
+        { Tanggal: "2026-11-11", Sales_Code: "SLS-005", Store_Code: "KLT-03", Brand: "Samsung", Nama_Model: "Galaxy S26 Ultra", Qty: 4 }
+      ]
+    };
+
+    let DB = DEMO_DB;
+    let activeMenu = "dashboard";
+    let displayMode = "VAL";
+    let activeCharts = [];
+
+    async function initApp() {
+      if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.startsWith("http")) {
+        try {
+          const res = await fetch(APPS_SCRIPT_URL);
+          const json = await res.json();
+          if (json && json.masterStore) {
+            DB = json;
+            const badge = document.getElementById("dataSourceBadge");
+            badge.textContent = "● Live Google Sheets (H-1)";
+            badge.className = "hidden md:inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30";
+          }
+        } catch (err) {
+          console.error("Gagal memuat API Google Sheets, beralih ke Demo Mode:", err);
+        }
+      }
+
+      setDefaultPeriodDates("THIS_MONTH_H1");
+      populateRoleDropdown();
+      populateRegionDropdown();
+      renderActiveMenu();
+    }
+
+    function populateRoleDropdown() {
+      const sel = document.getElementById("roleSelector");
+      sel.innerHTML = `<option value="LEADER">Role: Leader (All Area)</option>`;
+      DB.masterUser.filter(u => u.Role === "ERO").forEach(u => {
+        sel.innerHTML += `<option value="${u.Sales_Code}">Role: ERO - ${u.ERO_Name} (${u.Store_Code})</option>`;
+      });
+    }
+
+    function formatDateISO(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function setDefaultPeriodDates(preset) {
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+
+      let start, end;
+      if (preset === "THIS_MONTH_H1") {
+        start = new Date(yesterday.getFullYear(), yesterday.getMonth(), 1);
+        end = yesterday;
+      } else if (preset === "LAST_MONTH") {
+        start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        end = new Date(today.getFullYear(), today.getMonth(), 0);
+      } else if (preset === "THIS_WEEK") {
+        const dayOfWeek = yesterday.getDay() || 7;
+        start = new Date(yesterday);
+        start.setDate(yesterday.getDate() - dayOfWeek + 1);
+        end = yesterday;
+      } else if (preset === "YESTERDAY") {
+        start = yesterday;
+        end = yesterday;
+      } else {
+        return;
+      }
+
+      document.getElementById("dateStart").value = formatDateISO(start);
+      document.getElementById("dateEnd").value = formatDateISO(end);
+    }
+
+    function onPeriodPresetChange() {
+      const preset = document.getElementById("filterPeriod").value;
+      if (preset !== "CUSTOM") setDefaultPeriodDates(preset);
+      renderActiveMenu();
+    }
+
+    function onCustomDateChange() {
+      document.getElementById("filterPeriod").value = "CUSTOM";
+      renderActiveMenu();
+    }
+
+    function calcEstimationPct(actual, target, endDateStr) {
+      if (!target || target <= 0) return 0;
+      const endObj = new Date(endDateStr + "T00:00:00");
+      const totalDaysInMonth = new Date(endObj.getFullYear(), endObj.getMonth() + 1, 0).getDate();
+      const elapsedDaysH1 = Math.max(1, endObj.getDate());
+      const projected = (actual / elapsedDaysH1) * totalDaysInMonth;
+      return (projected / target) * 100;
+    }
+
+    function getActiveMonthKey() {
+      const endStr = document.getElementById("dateEnd").value;
+      return endStr ? endStr.slice(0, 7) : "2026-11";
+    }
+
+    function handleRoleChange() {
+      const roleVal = document.getElementById("roleSelector").value;
+      const regSel = document.getElementById("filterRegion");
+      const areaSel = document.getElementById("filterArea");
+      const storeSel = document.getElementById("filterStore");
+
+      if (roleVal === "LEADER") {
+        regSel.disabled = false;
+        areaSel.disabled = false;
+        storeSel.disabled = false;
+        populateRegionDropdown();
+      } else {
+        const user = DB.masterUser.find(u => u.Sales_Code === roleVal);
+        const store = DB.masterStore.find(s => s.Store_Code === user?.Store_Code);
+        if (store) {
+          populateRegionDropdown();
+          regSel.value = store.Region;
+          onRegionChange(false);
+          areaSel.value = store.Area_TSH;
+          onAreaChange(false);
+          storeSel.value = store.Store_Code;
+
+          regSel.disabled = true;
+          areaSel.disabled = true;
+          storeSel.disabled = true;
+        }
+      }
+      renderActiveMenu();
+    }
+
+    function populateRegionDropdown() {
+      const regSel = document.getElementById("filterRegion");
+      const regions = [...new Set(DB.masterStore.map(s => s.Region))];
+      regSel.innerHTML = `<option value="ALL">All Region</option>` +
+        regions.map(r => `<option value="${r}">${r}</option>`).join("");
+      onRegionChange(false);
+    }
+
+    function onRegionChange(triggerRender = true) {
+      const reg = document.getElementById("filterRegion").value;
+      const areaSel = document.getElementById("filterArea");
+      const filteredStores = reg === "ALL" ? DB.masterStore : DB.masterStore.filter(s => s.Region === reg);
+      const areas = [...new Set(filteredStores.map(s => s.Area_TSH))];
+
+      areaSel.innerHTML = `<option value="ALL">All Area / TSH</option>` +
+        areas.map(a => `<option value="${a}">${a}</option>`).join("");
+      onAreaChange(triggerRender);
+    }
+
+    function onAreaChange(triggerRender = true) {
+      const reg = document.getElementById("filterRegion").value;
+      const area = document.getElementById("filterArea").value;
+      const storeSel = document.getElementById("filterStore");
+
+      let stores = DB.masterStore;
+      if (reg !== "ALL") stores = stores.filter(s => s.Region === reg);
+      if (area !== "ALL") stores = stores.filter(s => s.Area_TSH === area);
+
+      storeSel.innerHTML = `<option value="ALL">All Stores (${stores.length})</option>` +
+        stores.map(s => `<option value="${s.Store_Code}">${s.Store_Name} (${s.Store_Code})</option>`).join("");
+      if (triggerRender) renderActiveMenu();
+    }
+
+    function setDisplayMode(mode) {
+      displayMode = mode;
+      const btnVal = document.getElementById("btnModeVal");
+      const btnQty = document.getElementById("btnModeQty");
+      if (mode === "VAL") {
+        btnVal.className = "py-1.5 text-xs font-bold rounded-md bg-sky-500 text-slate-950 transition";
+        btnQty.className = "py-1.5 text-xs font-bold rounded-md text-slate-400 hover:text-white transition";
+      } else {
+        btnQty.className = "py-1.5 text-xs font-bold rounded-md bg-sky-500 text-slate-950 transition";
+        btnVal.className = "py-1.5 text-xs font-bold rounded-md text-slate-400 hover:text-white transition";
+      }
+      renderActiveMenu();
+    }
+
+    function switchMenu(menu) {
+      activeMenu = menu;
+      ["dashboard", "ero", "brand", "fokus"].forEach(m => {
+        const el = document.getElementById(`nav-${m}`);
+        el.className = m === menu
+          ? "py-5 px-2 hover:text-white transition nav-active"
+          : "py-5 px-2 hover:text-white transition";
+      });
+      renderActiveMenu();
+    }
+
+    function fmtRp(num) {
+      if (!num) return "Rp 0";
+      if (num >= 1000000000) return "Rp " + (num / 1000000000).toFixed(2) + "M";
+      if (num >= 1000000) return "Rp " + (num / 1000000).toFixed(1) + "Jt";
+      return "Rp " + Number(num).toLocaleString("id-ID");
+    }
+
+    function fmtQty(num) {
+      return `${Number(num || 0).toLocaleString("id-ID")} Unit`;
+    }
+
+    function pctBadge(pct) {
+      const val = pct.toFixed(1);
+      if (pct >= 100) return `<span class="text-emerald-400 font-bold">${val}% ●</span>`;
+      if (pct >= 80) return `<span class="text-amber-400 font-bold">${val}% ●</span>`;
+      return `<span class="text-rose-400 font-bold">${val}% ●</span>`;
+    }
+
+    function getFilteredContext() {
+      const reg = document.getElementById("filterRegion").value;
+      const area = document.getElementById("filterArea").value;
+      const storeCode = document.getElementById("filterStore").value;
+      const start = document.getElementById("dateStart").value;
+      const end = document.getElementById("dateEnd").value;
+      const roleVal = document.getElementById("roleSelector").value;
+
+      let stores = DB.masterStore;
+      if (reg !== "ALL") stores = stores.filter(s => s.Region === reg);
+      if (area !== "ALL") stores = stores.filter(s => s.Area_TSH === area);
+      if (storeCode !== "ALL") stores = stores.filter(s => s.Store_Code === storeCode);
+
+      const allowedStoreCodes = new Set(stores.map(s => s.Store_Code));
+
+      let tx = DB.transaksi.filter(t => allowedStoreCodes.has(t.Store_Code) && t.Tanggal >= start && t.Tanggal <= end);
+      let ti = DB.tradeIn.filter(t => allowedStoreCodes.has(t.Store_Code) && t.Tanggal >= start && t.Tanggal <= end);
+
+      if (roleVal !== "LEADER") {
+        tx = tx.filter(t => t.Sales_Code === roleVal);
+        ti = ti.filter(t => t.Sales_Code === roleVal);
+      }
+
+      return { stores, allowedStoreCodes, tx, ti, start, end, roleVal, monthKey: getActiveMonthKey() };
+    }
+
+    function destroyCharts() {
+      activeCharts.forEach(c => c.destroy());
+      activeCharts = [];
+    }
+
+    function renderActiveMenu() {
+      destroyCharts();
+      const container = document.getElementById("appContainer");
+      const ctx = getFilteredContext();
+
+      if (activeMenu === "dashboard") renderDashboardMenu(container, ctx);
+      else if (activeMenu === "ero") renderEroMenu(container, ctx);
+      else if (activeMenu === "brand") renderBrandMenu(container, ctx);
+      else if (activeMenu === "fokus") renderFokusMenu(container, ctx);
+    }
+
+    function renderDashboardMenu(container, ctx) {
+      const sumVal = (arr) => arr.reduce((a, b) => a + Number(b.Value || 0), 0);
+      const sumQty = (arr) => arr.reduce((a, b) => a + Number(b.Qty || 0), 0);
+
+      const salesAllVal = sumVal(ctx.tx);
+      const salesAllQty = sumQty(ctx.tx);
+
+      const devTx = ctx.tx.filter(t => t.Kategori === "Device");
+      const accTx = ctx.tx.filter(t => t.Kategori === "Acc");
+      const bolTx = ctx.tx.filter(t => t.Kategori === "Boltech");
+      const isatTx = ctx.tx.filter(t => t.Kategori === "Indosat");
+      const tselTx = ctx.tx.filter(t => t.Kategori === "Telkomsel");
+      const xlTx = ctx.tx.filter(t => t.Kategori === "XL");
+      const opTx = [...isatTx, ...tselTx, ...xlTx];
+
+      const tradeInQty = sumQty(ctx.ti);
+
+      let tgt = { SalesAll_Val: 0, Device_Val: 0, Acc_Val: 0, Boltech_Val: 0, Operator_Val: 0, Indosat_Val: 0, Telkomsel_Val: 0, XL_Val: 0, TradeIn_Qty: 0 };
+      if (ctx.roleVal === "LEADER") {
+        DB.targetStore.filter(t => ctx.allowedStoreCodes.has(t.Store_Code) && t.Bulan === ctx.monthKey).forEach(r => {
+          Object.keys(tgt).forEach(k => tgt[k] += Number(r[k] || 0));
+        });
+      } else {
+        const er = DB.targetEro.find(t => t.Sales_Code === ctx.roleVal && t.Bulan === ctx.monthKey);
+        if (er) Object.keys(tgt).forEach(k => tgt[k] = Number(er[k] || 0));
+      }
+
+      const achSalesPct = tgt.SalesAll_Val > 0 ? (salesAllVal / tgt.SalesAll_Val) * 100 : 0;
+      const estSalesPct = calcEstimationPct(salesAllVal, tgt.SalesAll_Val, ctx.end);
+
+      const categories = [
+        { name: "Device", val: sumVal(devTx), qty: sumQty(devTx), tgtVal: tgt.Device_Val, isQtyOnly: false },
+        { name: "Accessories (Acc)", val: sumVal(accTx), qty: sumQty(accTx), tgtVal: tgt.Acc_Val, isQtyOnly: false },
+        { name: "Boltech", val: sumVal(bolTx), qty: sumQty(bolTx), tgtVal: tgt.Boltech_Val, isQtyOnly: false },
+        { name: "Operator All", val: sumVal(opTx), qty: sumQty(opTx), tgtVal: tgt.Operator_Val, isQtyOnly: false },
+        { name: "↳ Indosat", val: sumVal(isatTx), qty: sumQty(isatTx), tgtVal: tgt.Indosat_Val, isQtyOnly: false, sub: true },
+        { name: "↳ Telkomsel", val: sumVal(tselTx), qty: sumQty(tselTx), tgtVal: tgt.Telkomsel_Val, isQtyOnly: false, sub: true },
+        { name: "↳ XL", val: sumVal(xlTx), qty: sumQty(xlTx), tgtVal: tgt.XL_Val, isQtyOnly: false, sub: true },
+        { name: "Trade-In", val: 0, qty: tradeInQty, tgtQty: tgt.TradeIn_Qty, isQtyOnly: true }
+      ];
+
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-lg font-bold text-white tracking-wide">OVERVIEW PERFORMA AREA & STORE</h2>
+          <span class="text-xs text-slate-400">Periode: <strong class="text-sky-400">${ctx.start}</strong> s/d <strong class="text-sky-400">${ctx.end}</strong> (Cut-off H-1)</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="card-panel rounded-xl p-5">
+            <div class="text-xs text-slate-400 font-semibold uppercase">Total Sales All (${displayMode === 'VAL' ? 'Rp' : 'Unit'})</div>
+            <div class="text-2xl sm:text-3xl font-extrabold text-white mt-2">${displayMode === 'VAL' ? fmtRp(salesAllVal) : fmtQty(salesAllQty)}</div>
+            <div class="text-xs text-slate-400 mt-1">Target Bulanan: <span class="text-slate-200 font-semibold">${fmtRp(tgt.SalesAll_Val)}</span></div>
+          </div>
+
+          <div class="card-panel rounded-xl p-5">
+            <div class="text-xs text-slate-400 font-semibold uppercase">% Actual Achievement</div>
+            <div class="text-2xl sm:text-3xl font-extrabold text-sky-400 mt-2">${achSalesPct.toFixed(1)}%</div>
+            <div class="w-full bg-slate-800 h-2 rounded-full mt-3 overflow-hidden">
+              <div class="bg-sky-400 h-full" style="width: ${Math.min(100, achSalesPct)}%"></div>
+            </div>
+          </div>
+
+          <div class="card-panel rounded-xl p-5">
+            <div class="text-xs text-slate-400 font-semibold uppercase">Estimasi Closing Bulan (%)</div>
+            <div class="text-2xl sm:text-3xl font-extrabold mt-2 ${estSalesPct >= 100 ? 'text-emerald-400' : 'text-amber-400'}">${estSalesPct.toFixed(1)}% Est.</div>
+            <div class="text-xs text-slate-400 mt-1">Run-rate dibagi hari berjalan s/d H-1</div>
+          </div>
+
+          <div class="card-panel rounded-xl p-5">
+            <div class="text-xs text-slate-400 font-semibold uppercase">Trade-In Achievement</div>
+            <div class="text-2xl sm:text-3xl font-extrabold text-white mt-2">${fmtQty(tradeInQty)}</div>
+            <div class="text-xs text-slate-400 mt-1">Target: <span class="text-slate-200 font-semibold">${fmtQty(tgt.TradeIn_Qty)}</span> • Est: ${pctBadge(calcEstimationPct(tradeInQty, tgt.TradeIn_Qty, ctx.end))}</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="card-panel rounded-xl p-5 lg:col-span-5 flex flex-col justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-1">Perbandingan Sales per Store</h3>
+              <p class="text-xs text-slate-400 mb-4">Mode aktif: ${displayMode === 'VAL' ? 'Value (Rp)' : 'Qty (Unit)'}</p>
+            </div>
+            <div class="h-64"><canvas id="chartStoreBar"></canvas></div>
+          </div>
+
+          <div class="card-panel rounded-xl p-5 lg:col-span-7 overflow-x-auto">
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4">Rincian Kategori & Proyeksi Closing (H-1)</h3>
+            <table class="w-full text-left text-xs sm:text-sm">
+              <thead>
+                <tr class="border-b border-slate-800 text-slate-400 text-[11px] uppercase">
+                  <th class="py-2.5 px-2">Kategori</th>
+                  <th class="py-2.5 px-2 text-right">Actual</th>
+                  <th class="py-2.5 px-2 text-right">Target</th>
+                  <th class="py-2.5 px-2 text-right">% Ach</th>
+                  <th class="py-2.5 px-2 text-right">Est. Closing</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60">
+                ${categories.map(c => {
+                  if (c.isQtyOnly) {
+                    const ach = c.tgtQty > 0 ? (c.qty / c.tgtQty) * 100 : 0;
+                    const est = calcEstimationPct(c.qty, c.tgtQty, ctx.end);
+                    return `
+                      <tr class="hover:bg-slate-800/30">
+                        <td class="py-2.5 px-2 font-semibold text-amber-300">${c.name}</td>
+                        <td class="py-2.5 px-2 text-right font-bold text-white">${fmtQty(c.qty)}</td>
+                        <td class="py-2.5 px-2 text-right text-slate-300">${fmtQty(c.tgtQty)}</td>
+                        <td class="py-2.5 px-2 text-right">${pctBadge(ach)}</td>
+                        <td class="py-2.5 px-2 text-right">${pctBadge(est)}</td>
+                      </tr>`;
+                  }
+                  if (displayMode === "QTY") {
+                    return `
+                      <tr class="hover:bg-slate-800/30 ${c.sub ? 'text-slate-400 bg-slate-900/30' : ''}">
+                        <td class="py-2.5 px-2 ${c.sub ? 'pl-5' : 'font-semibold text-white'}">${c.name}</td>
+                        <td class="py-2.5 px-2 text-right font-bold text-sky-300">${fmtQty(c.qty)}</td>
+                        <td class="py-2.5 px-2 text-right text-slate-500">-</td>
+                        <td class="py-2.5 px-2 text-right text-slate-500">-</td>
+                        <td class="py-2.5 px-2 text-right text-slate-500">-</td>
+                      </tr>`;
+                  }
+                  const ach = c.tgtVal > 0 ? (c.val / c.tgtVal) * 100 : 0;
+                  const est = calcEstimationPct(c.val, c.tgtVal, ctx.end);
+                  return `
+                    <tr class="hover:bg-slate-800/30 ${c.sub ? 'text-slate-400 bg-slate-900/30' : ''}">
+                      <td class="py-2.5 px-2 ${c.sub ? 'pl-5' : 'font-semibold text-white'}">${c.name}</td>
+                      <td class="py-2.5 px-2 text-right font-bold text-white">${fmtRp(c.val)}</td>
+                      <td class="py-2.5 px-2 text-right text-slate-300">${fmtRp(c.tgtVal)}</td>
+                      <td class="py-2.5 px-2 text-right">${pctBadge(ach)}</td>
+                      <td class="py-2.5 px-2 text-right">${pctBadge(est)}</td>
+                    </tr>`;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      const storeLabels = ctx.stores.map(s => s.Store_Name);
+      const storeValues = ctx.stores.map(s => {
+        const rows = ctx.tx.filter(t => t.Store_Code === s.Store_Code);
+        return displayMode === "VAL" ? sumVal(rows) : sumQty(rows);
+      });
+
+      const chart = new Chart(document.getElementById("chartStoreBar"), {
+        type: "bar",
+        data: {
+          labels: storeLabels,
+          datasets: [{
+            label: displayMode === "VAL" ? "Sales Value (Rp)" : "Sales Qty (Unit)",
+            data: storeValues,
+            backgroundColor: "#38bdf8",
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: "#94a3b8" }, grid: { display: false } },
+            y: { ticks: { color: "#94a3b8" }, grid: { color: "#1e293b" } }
+          }
+        }
+      });
+      activeCharts.push(chart);
+    }
+
+    function renderEroMenu(container, ctx) {
+      const eros = DB.masterUser.filter(u => u.Role === "ERO" && ctx.allowedStoreCodes.has(u.Store_Code));
+      const ranking = eros.map(u => {
+        const store = DB.masterStore.find(s => s.Store_Code === u.Store_Code) || {};
+        const uTx = ctx.tx.filter(t => t.Sales_Code === u.Sales_Code);
+        const uTi = ctx.ti.filter(t => t.Sales_Code === u.Sales_Code);
+        const tgt = DB.targetEro.find(t => t.Sales_Code === u.Sales_Code && t.Bulan === ctx.monthKey) || {};
+
+        const salesVal = uTx.reduce((a, b) => a + Number(b.Value || 0), 0);
+        const salesQty = uTx.reduce((a, b) => a + Number(b.Qty || 0), 0);
+        const dev = uTx.filter(t => t.Kategori === "Device");
+        const acc = uTx.filter(t => t.Kategori === "Acc");
+        const bol = uTx.filter(t => t.Kategori === "Boltech");
+        const op = uTx.filter(t => ["Indosat", "Telkomsel", "XL"].includes(t.Kategori));
+        const tiQty = uTi.reduce((a, b) => a + Number(b.Qty || 0), 0);
+
+        return {
+          ...u,
+          storeName: store.Store_Name || u.Store_Code,
+          area: store.Area_TSH || "-",
+          region: store.Region || "-",
+          salesVal, salesQty,
+          devVal: dev.reduce((a, b) => a + Number(b.Value || 0), 0),
+          devQty: dev.reduce((a, b) => a + Number(b.Qty || 0), 0),
+          accVal: acc.reduce((a, b) => a + Number(b.Value || 0), 0),
+          accQty: acc.reduce((a, b) => a + Number(b.Qty || 0), 0),
+          bolVal: bol.reduce((a, b) => a + Number(b.Value || 0), 0),
+          bolQty: bol.reduce((a, b) => a + Number(b.Qty || 0), 0),
+          opVal: op.reduce((a, b) => a + Number(b.Value || 0), 0),
+          opQty: op.reduce((a, b) => a + Number(b.Qty || 0), 0),
+          tiQty,
+          tgtSalesVal: Number(tgt.SalesAll_Val || 0),
+          tgtTiQty: Number(tgt.TradeIn_Qty || 0)
+        };
+      }).sort((a, b) => displayMode === "VAL" ? b.salesVal - a.salesVal : b.salesQty - a.salesQty);
+
+      const top3 = [ranking[1], ranking[0], ranking[2]];
+
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-lg font-bold text-white tracking-wide">TOP SALES & LEADERBOARD ERO ALL AREA</h2>
+          <span class="text-xs text-slate-400">Diurutkan berdasarkan: <strong class="text-sky-400">${displayMode === 'VAL' ? 'Sales All Value (Rp)' : 'Sales All Qty (Unit)'}</strong></span>
+        </div>
+
+        <div class="card-panel rounded-xl p-6">
+          <div class="text-center text-xs font-bold tracking-widest text-sky-400 uppercase mb-6">Top 3 Sales ERO</div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end max-w-4xl mx-auto">
+            ${top3.map((p, idx) => {
+              if (!p) return `<div></div>`;
+              const rankNum = idx === 1 ? 1 : (idx === 0 ? 2 : 3);
+              const isFirst = rankNum === 1;
+              return `
+                <div class="rounded-xl p-5 text-center border ${isFirst ? 'bg-sky-500/10 border-sky-400/50 md:pb-8' : 'bg-[#080f1e] border-slate-800'}">
+                  <div class="inline-flex items-center justify-center w-9 h-9 rounded-full font-extrabold text-sm mb-2 ${isFirst ? 'bg-amber-400 text-slate-950' : 'bg-slate-700 text-white'}">#${rankNum}</div>
+                  <div class="text-base font-extrabold text-white">${p.ERO_Name}</div>
+                  <div class="text-[11px] text-slate-400 mt-0.5">${p.Sales_Code} • ${p.storeName}</div>
+                  <div class="text-xl font-extrabold text-sky-400 mt-3">${displayMode === 'VAL' ? fmtRp(p.salesVal) : fmtQty(p.salesQty)}</div>
+                  <div class="text-[11px] text-slate-400 mt-1">Est. Closing: ${pctBadge(calcEstimationPct(p.salesVal, p.tgtSalesVal, ctx.end))}</div>
+                </div>`;
+            }).join("")}
+          </div>
+        </div>
+
+        <div class="card-panel rounded-xl p-5 overflow-x-auto">
+          <table class="w-full text-left text-xs sm:text-sm whitespace-nowrap">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 text-[11px] uppercase">
+                <th class="py-3 px-2">Rank</th>
+                <th class="py-3 px-2">ERO Name</th>
+                <th class="py-3 px-2">Store & Area</th>
+                <th class="py-3 px-2 text-right">Sales All</th>
+                <th class="py-3 px-2 text-right">Device</th>
+                <th class="py-3 px-2 text-right">Acc</th>
+                <th class="py-3 px-2 text-right">Boltech</th>
+                <th class="py-3 px-2 text-right">Trade-In (Qty)</th>
+                <th class="py-3 px-2 text-right">Operator All</th>
+                <th class="py-3 px-2 text-right">Est. Closing</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/60">
+              ${ranking.map((r, i) => `
+                <tr class="hover:bg-slate-800/30">
+                  <td class="py-3 px-2 font-extrabold text-sky-400">#${i + 1}</td>
+                  <td class="py-3 px-2 font-bold text-white">${r.ERO_Name} <span class="text-xs font-normal text-slate-400">(${r.Sales_Code})</span></td>
+                  <td class="py-3 px-2 text-xs text-slate-300">${r.storeName} <span class="text-slate-500">• ${r.area}</span></td>
+                  <td class="py-3 px-2 text-right font-extrabold text-white">${displayMode === 'VAL' ? fmtRp(r.salesVal) : fmtQty(r.salesQty)}</td>
+                  <td class="py-3 px-2 text-right">${displayMode === 'VAL' ? fmtRp(r.devVal) : fmtQty(r.devQty)}</td>
+                  <td class="py-3 px-2 text-right">${displayMode === 'VAL' ? fmtRp(r.accVal) : fmtQty(r.accQty)}</td>
+                  <td class="py-3 px-2 text-right">${displayMode === 'VAL' ? fmtRp(r.bolVal) : fmtQty(r.bolQty)}</td>
+                  <td class="py-3 px-2 text-right font-semibold text-amber-300">${fmtQty(r.tiQty)}</td>
+                  <td class="py-3 px-2 text-right">${displayMode === 'VAL' ? fmtRp(r.opVal) : fmtQty(r.opQty)}</td>
+                  <td class="py-3 px-2 text-right">${pctBadge(calcEstimationPct(r.salesVal, r.tgtSalesVal, ctx.end))}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderBrandMenu(container, ctx) {
+      const brands = [...new Set([...ctx.tx.map(t => t.Brand), ...ctx.ti.map(t => t.Brand)].filter(Boolean))];
+      const totalAll = ctx.tx.reduce((a, b) => a + Number(displayMode === "VAL" ? b.Value : b.Qty || 0), 0);
+
+      const brandRows = brands.map(b => {
+        const bTx = ctx.tx.filter(t => t.Brand === b);
+        const bTi = ctx.ti.filter(t => t.Brand === b);
+        const metric = (arr) => arr.reduce((sum, item) => sum + Number(displayMode === "VAL" ? item.Value : item.Qty || 0), 0);
+
+        const sales = metric(bTx);
+        const share = totalAll > 0 ? (sales / totalAll) * 100 : 0;
+
+        return {
+          brand: b,
+          sales,
+          share,
+          dev: metric(bTx.filter(t => t.Kategori === "Device")),
+          acc: metric(bTx.filter(t => t.Kategori === "Acc")),
+          bol: metric(bTx.filter(t => t.Kategori === "Boltech")),
+          tiQty: bTi.reduce((a, x) => a + Number(x.Qty || 0), 0),
+          op: metric(bTx.filter(t => ["Indosat", "Telkomsel", "XL"].includes(t.Kategori)))
+        };
+      }).sort((a, b) => b.sales - a.sales);
+
+      const fmtMetric = (v) => displayMode === "VAL" ? fmtRp(v) : fmtQty(v);
+
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-lg font-bold text-white tracking-wide">SALES PERFORMANCE BY BRAND</h2>
+          <span class="text-xs text-slate-400">Basis Perhitungan: <strong class="text-sky-400">${displayMode === 'VAL' ? 'Omzet Value (Rp)' : 'Volume Unit (Qty)'}</strong></span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="card-panel rounded-xl p-5 lg:col-span-4 flex flex-col justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-white uppercase mb-1">Brand Contribution (%)</h3>
+              <p class="text-xs text-slate-400 mb-4">Proporsi kontribusi per merek</p>
+            </div>
+            <div class="h-64"><canvas id="chartBrandDonut"></canvas></div>
+          </div>
+
+          <div class="card-panel rounded-xl p-5 lg:col-span-8 overflow-x-auto">
+            <h3 class="text-sm font-bold text-white uppercase mb-4">Rincian Penjualan Lintas Kategori per Brand</h3>
+            <table class="w-full text-left text-xs sm:text-sm whitespace-nowrap">
+              <thead>
+                <tr class="border-b border-slate-800 text-slate-400 text-[11px] uppercase">
+                  <th class="py-2.5 px-2">Brand</th>
+                  <th class="py-2.5 px-2 text-right">Share</th>
+                  <th class="py-2.5 px-2 text-right">Sales All</th>
+                  <th class="py-2.5 px-2 text-right">Device</th>
+                  <th class="py-2.5 px-2 text-right">Acc</th>
+                  <th class="py-2.5 px-2 text-right">Boltech</th>
+                  <th class="py-2.5 px-2 text-right">Trade-In</th>
+                  <th class="py-2.5 px-2 text-right">Operator</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60">
+                ${brandRows.map(r => `
+                  <tr class="hover:bg-slate-800/30">
+                    <td class="py-3 px-2 font-extrabold text-white">${r.brand}</td>
+                    <td class="py-3 px-2 text-right text-sky-400 font-bold">${r.share.toFixed(1)}%</td>
+                    <td class="py-3 px-2 text-right font-bold text-white">${fmtMetric(r.sales)}</td>
+                    <td class="py-3 px-2 text-right">${fmtMetric(r.dev)}</td>
+                    <td class="py-3 px-2 text-right">${fmtMetric(r.acc)}</td>
+                    <td class="py-3 px-2 text-right">${fmtMetric(r.bol)}</td>
+                    <td class="py-3 px-2 text-right text-amber-300 font-semibold">${fmtQty(r.tiQty)}</td>
+                    <td class="py-3 px-2 text-right">${fmtMetric(r.op)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      const chart = new Chart(document.getElementById("chartBrandDonut"), {
+        type: "doughnut",
+        data: {
+          labels: brandRows.map(r => r.brand),
+          datasets: [{
+            data: brandRows.map(r => r.sales),
+            backgroundColor: ["#38bdf8", "#10b981", "#8b5cf6", "#f59e0b", "#f43f5e", "#06b6d4"],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: "bottom", labels: { color: "#cbd5e1", boxWidth: 12 } } }
+        }
+      });
+      activeCharts.push(chart);
+    }
+
+    function renderFokusMenu(container, ctx) {
+      const activeModels = DB.masterFokus.filter(m => String(m.Status_Fokus).toUpperCase() === "AKTIF");
+      const activeModelNames = new Set(activeModels.map(m => m.Nama_Model));
+
+      const fokusTx = ctx.tx.filter(t => t.Kategori === "Device" && activeModelNames.has(t.Nama_Model));
+      const totalFokusQty = fokusTx.reduce((a, b) => a + Number(b.Qty || 0), 0);
+      const totalFokusVal = fokusTx.reduce((a, b) => a + Number(b.Value || 0), 0);
+
+      const eros = DB.masterUser.filter(u => u.Role === "ERO" && ctx.allowedStoreCodes.has(u.Store_Code));
+      const allowedEroCodes = new Set(eros.map(u => u.Sales_Code));
+      let totalTargetFokusQty = 0;
+      DB.targetEro.filter(t => allowedEroCodes.has(t.Sales_Code) && t.Bulan === ctx.monthKey).forEach(r => {
+        if (ctx.roleVal === "LEADER" || r.Sales_Code === ctx.roleVal) {
+          totalTargetFokusQty += Number(r.Fokus_Qty || 0);
+        }
+      });
+
+      const achPct = totalTargetFokusQty > 0 ? (totalFokusQty / totalTargetFokusQty) * 100 : 0;
+      const estPct = calcEstimationPct(totalFokusQty, totalTargetFokusQty, ctx.end);
+
+      const modelBreakdown = activeModels.map(m => {
+        const mTx = fokusTx.filter(t => t.Nama_Model === m.Nama_Model);
+        return {
+          model: m.Nama_Model,
+          qty: mTx.reduce((a, b) => a + Number(b.Qty || 0), 0),
+          val: mTx.reduce((a, b) => a + Number(b.Value || 0), 0)
+        };
+      });
+
+      const eroFokusList = eros.map(u => {
+        const store = DB.masterStore.find(s => s.Store_Code === u.Store_Code) || {};
+        const uTx = fokusTx.filter(t => t.Sales_Code === u.Sales_Code);
+        const tgt = DB.targetEro.find(t => t.Sales_Code === u.Sales_Code && t.Bulan === ctx.monthKey) || {};
+        const qty = uTx.reduce((a, b) => a + Number(b.Qty || 0), 0);
+        const val = uTx.reduce((a, b) => a + Number(b.Value || 0), 0);
+        const tgtQty = Number(tgt.Fokus_Qty || 0);
+        return {
+          ...u,
+          storeName: store.Store_Name || u.Store_Code,
+          area: store.Area_TSH || "-",
+          qty, val, tgtQty,
+          ach: tgtQty > 0 ? (qty / tgtQty) * 100 : 0,
+          est: calcEstimationPct(qty, tgtQty, ctx.end)
+        };
+      }).sort((a, b) => b.qty - a.qty);
+
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-lg font-bold text-white tracking-wide">MONITORING PRODUK FOKUS (HERO PRODUCT)</h2>
+          <span class="text-xs px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
+            Model Aktif Backend: <strong>${activeModels.map(m => m.Nama_Model).join(", ") || "Belum diset"}</strong>
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="card-panel rounded-xl p-5">
+            <div class="text-xs text-slate-400 font-semibold uppercase">Actual Produk Fokus</div>
+            <div class="text-3xl font-extrabold text-white mt-2">${fmtQty(totalFokusQty)}</div>
+            <div class="text-xs text-sky-400 font-semibold mt-1">Nilai Omzet: ${fmtRp(totalFokusVal)}</div>
+          </div>
+          <div class="card-panel rounded-xl p-5">
+            <div class="text-xs text-slate-400 font-semibold uppercase">Target & % Achievement</div>
+            <div class="text-3xl font-extrabold text-sky-400 mt-2">${achPct.toFixed(1)}%</div>
+            <div class="text-xs text-slate-400 mt-1">Target Fokus: <strong class="text-white">${fmtQty(totalTargetFokusQty)}</strong></div>
+          </div>
+          <div class="card-panel rounded-xl p-5">
+            <div class="text-xs text-slate-400 font-semibold uppercase">Estimasi Closing Bulan (H-1)</div>
+            <div class="text-3xl font-extrabold mt-2 ${estPct >= 100 ? 'text-emerald-400' : 'text-amber-400'}">${estPct.toFixed(1)}% Est.</div>
+            <div class="text-xs text-slate-400 mt-1">Model non-fokus otomatis tersaring keluar</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="card-panel rounded-xl p-5 lg:col-span-4">
+            <h3 class="text-sm font-bold text-white uppercase mb-4">Kontribusi per Model Fokus</h3>
+            <div class="space-y-3">
+              ${modelBreakdown.map(m => `
+                <div class="p-3 rounded-lg bg-[#080f1e] border border-slate-800 flex items-center justify-between">
+                  <div>
+                    <div class="text-sm font-bold text-white">${m.model}</div>
+                    <div class="text-xs text-slate-400">${fmtRp(m.val)}</div>
+                  </div>
+                  <div class="text-base font-extrabold text-sky-400">${fmtQty(m.qty)}</div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+
+          <div class="card-panel rounded-xl p-5 lg:col-span-8 overflow-x-auto">
+            <h3 class="text-sm font-bold text-white uppercase mb-4">Pencapaian Produk Fokus per ERO</h3>
+            <table class="w-full text-left text-xs sm:text-sm whitespace-nowrap">
+              <thead>
+                <tr class="border-b border-slate-800 text-slate-400 text-[11px] uppercase">
+                  <th class="py-2.5 px-2">Rank</th>
+                  <th class="py-2.5 px-2">ERO Name</th>
+                  <th class="py-2.5 px-2">Store & Area</th>
+                  <th class="py-2.5 px-2 text-right">Actual Qty</th>
+                  <th class="py-2.5 px-2 text-right">Target Qty</th>
+                  <th class="py-2.5 px-2 text-right">% Ach</th>
+                  <th class="py-2.5 px-2 text-right">Est. Closing</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60">
+                ${eroFokusList.map((r, i) => `
+                  <tr class="hover:bg-slate-800/30">
+                    <td class="py-3 px-2 font-extrabold text-sky-400">#${i + 1}</td>
+                    <td class="py-3 px-2 font-bold text-white">${r.ERO_Name} <span class="text-xs text-slate-400">(${r.Sales_Code})</span></td>
+                    <td class="py-3 px-2 text-xs text-slate-300">${r.storeName} • ${r.area}</td>
+                    <td class="py-3 px-2 text-right font-extrabold text-white">${fmtQty(r.qty)}</td>
+                    <td class="py-3 px-2 text-right text-slate-300">${fmtQty(r.tgtQty)}</td>
+                    <td class="py-3 px-2 text-right">${pctBadge(r.ach)}</td>
+                    <td class="py-3 px-2 text-right">${pctBadge(r.est)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    initApp();
+  </script>
+</body>
+</html>
